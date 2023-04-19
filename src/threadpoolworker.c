@@ -1,4 +1,4 @@
-#include "threadpoollock.h"
+#include "threadlock.h"
 #include "threadpoolworker.h"
 #include <stdlib.h>
 
@@ -7,22 +7,24 @@ struct ThreadPoolWorker
   void                       *thread;
   void                       (*fn)(void *);
   void                       *args;
-  struct ThreadPoolLock      *worker_lock;
-  struct ThreadPoolLock      *notify_lock;
+  struct ThreadLock          *worker_lock;
+  struct ThreadLock          *notify_lock;
   struct ThreadPoolThreadAPI *thread_api;
   bool                       *should_stop;
 };
 
 static void *_threadpoolworker_run(void *);
 
-struct ThreadPoolWorker *threadpoolworker_new(struct ThreadPoolThreadAPI *thread_api, struct ThreadPoolLock *notify_lock, bool *should_stop, int wait_timeout_in_seconds)
+struct ThreadPoolWorker *threadpoolworker_new(struct ThreadPoolThreadAPI *thread_api, struct ThreadLock *notify_lock, bool *should_stop, int wait_timeout_in_milliseconds)
 {
   if (thread_api == NULL || notify_lock == NULL || *should_stop)
   {
     return(NULL);
   }
 
-  struct ThreadPoolLock *worker_lock = threadpoollock_new(wait_timeout_in_seconds);
+  struct ThreadLockOptions lock_options = threadlock_new_default_options();
+  lock_options.wait_timeout_in_milliseconds = wait_timeout_in_milliseconds;
+  struct ThreadLock        *worker_lock = threadlock_new_with_options(lock_options);
   if (worker_lock == NULL)
   {
     return(NULL);
@@ -39,7 +41,7 @@ struct ThreadPoolWorker *threadpoolworker_new(struct ThreadPoolThreadAPI *thread
   worker->thread = thread_api->start(thread_api, _threadpoolworker_run, worker);
   if (worker->thread == NULL)
   {
-    threadpoollock_release(worker->worker_lock);
+    threadlock_release(worker->worker_lock);
     free(worker);
     return(NULL);
   }
@@ -55,14 +57,14 @@ void threadpoolworker_release(struct ThreadPoolWorker *worker)
     return;
   }
 
-  threadpoollock_lock(worker->worker_lock);
+  threadlock_lock(worker->worker_lock);
   worker->fn   = NULL;
   worker->args = NULL;
-  threadpoollock_signal(worker->worker_lock, false);
-  threadpoollock_unlock(worker->worker_lock);
+  threadlock_signal(worker->worker_lock, false);
+  threadlock_unlock(worker->worker_lock);
   worker->thread_api->stop(worker->thread_api, worker->thread);
 
-  threadpoollock_release(worker->worker_lock);
+  threadlock_release(worker->worker_lock);
   free(worker);
 }
 
@@ -85,11 +87,11 @@ bool threadpoolworker_assign(struct ThreadPoolWorker *worker, void (*fn)(void *)
     return(false);
   }
 
-  threadpoollock_lock(worker->worker_lock);
+  threadlock_lock(worker->worker_lock);
   worker->args = args;
   worker->fn   = fn;
-  threadpoollock_signal(worker->worker_lock, false);
-  threadpoollock_unlock(worker->worker_lock);
+  threadlock_signal(worker->worker_lock, false);
+  threadlock_unlock(worker->worker_lock);
 
   return(true);
 }
@@ -105,7 +107,7 @@ static void *_threadpoolworker_run(void *worker_ptr)
   struct ThreadPoolWorker *worker = (struct ThreadPoolWorker *)worker_ptr;
   do
   {
-    threadpoollock_lock(worker->worker_lock);
+    threadlock_lock(worker->worker_lock);
     void (*fn)(void *) = worker->fn;
     void *args = worker->args;
     if (fn != NULL)
@@ -115,14 +117,14 @@ static void *_threadpoolworker_run(void *worker_ptr)
       worker->args = NULL;
       worker->fn   = NULL;
 
-      threadpoollock_unlock(worker->worker_lock);
-      threadpoollock_signal(worker->notify_lock, true);
+      threadlock_unlock(worker->worker_lock);
+      threadlock_signal(worker->notify_lock, true);
     }
     else if (!*worker->should_stop)
     {
-      threadpoollock_signal(worker->notify_lock, true);
-      threadpoollock_wait(worker->worker_lock, false);
-      threadpoollock_unlock(worker->worker_lock);
+      threadlock_signal(worker->notify_lock, true);
+      threadlock_wait(worker->worker_lock, false);
+      threadlock_unlock(worker->worker_lock);
     }
 
     if (*worker->should_stop && worker->fn == NULL)

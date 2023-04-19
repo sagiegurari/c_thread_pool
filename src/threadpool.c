@@ -1,5 +1,5 @@
+#include "threadlock.h"
 #include "threadpool.h"
-#include "threadpoollock.h"
 #include "threadpoolthreadapiimpl.h"
 #include "threadpoolworker.h"
 #include <stdlib.h>
@@ -14,8 +14,8 @@ struct ThreadPool
   struct  ThreadPoolThreadAPI *thread_api;
   bool                        release_thread_api;
   struct ThreadPoolWorker     **workers;
-  struct ThreadPoolLock       *state_lock;
-  struct ThreadPoolLock       *notification_lock;
+  struct ThreadLock           *state_lock;
+  struct ThreadLock           *notification_lock;
 };
 
 static struct ThreadPoolWorker *_threadpool_start_worker(struct ThreadPool *);
@@ -47,15 +47,17 @@ struct ThreadPool *threadpool_new_with_options(struct ThreadPoolOptions options,
     return(NULL);
   }
 
-  struct ThreadPoolLock *state_lock = threadpoollock_new(options.wait_timeout_in_milliseconds);
+  struct ThreadLockOptions lock_options = threadlock_new_default_options();
+  lock_options.wait_timeout_in_milliseconds = options.wait_timeout_in_milliseconds;
+  struct ThreadLock        *state_lock = threadlock_new_with_options(lock_options);
   if (state_lock == NULL)
   {
     return(NULL);
   }
-  struct ThreadPoolLock *notification_lock = threadpoollock_new(options.wait_timeout_in_milliseconds);
+  struct ThreadLock *notification_lock = threadlock_new_with_options(lock_options);
   if (notification_lock == NULL)
   {
-    threadpoollock_release(state_lock);
+    threadlock_release(state_lock);
     return(NULL);
   }
 
@@ -105,8 +107,8 @@ void threadpool_release(struct ThreadPool *pool)
     threadpoolworker_release(worker);
   }
 
-  threadpoollock_release(pool->state_lock);
-  threadpoollock_release(pool->notification_lock);
+  threadlock_release(pool->state_lock);
+  threadlock_release(pool->notification_lock);
   if (pool->release_thread_api)
   {
     threadpoolthreadapiimpl_release(pool->thread_api);
@@ -127,7 +129,7 @@ bool threadpool_invoke(struct ThreadPool *pool, void (*fn)(void *), void *args)
   while (worker == NULL && pool->wait_for_available_thread && !pool->in_release && !pool->blocked)
   {
     // wait for worker to be available
-    threadpoollock_wait_with_timeout(pool->notification_lock, true, 1000);
+    threadlock_wait_with_timeout(pool->notification_lock, true, 1000);
 
     worker = _threadpool_get_available_worker(pool, fn, args);
   }
@@ -143,7 +145,7 @@ void threadpool_block(struct ThreadPool *pool)
     return;
   }
 
-  threadpoollock_lock(pool->state_lock);
+  threadlock_lock(pool->state_lock);
   pool->blocked = true;
 
   for (size_t index = 0; index < pool->max_size; index++)
@@ -157,12 +159,12 @@ void threadpool_block(struct ThreadPool *pool)
     while (threadpoolworker_is_running(worker))
     {
       // wait for worker to notify its done
-      threadpoollock_wait(pool->notification_lock, true);
+      threadlock_wait(pool->notification_lock, true);
     }
   }
 
   pool->blocked = false;
-  threadpoollock_unlock(pool->state_lock);
+  threadlock_unlock(pool->state_lock);
 }
 
 static struct ThreadPoolWorker *_threadpool_start_worker(struct ThreadPool *pool)
@@ -186,7 +188,7 @@ struct ThreadPoolWorker *_threadpool_get_available_worker(struct ThreadPool *poo
   struct ThreadPoolWorker *worker = NULL;
   bool                    done    = false;
 
-  threadpoollock_lock(pool->state_lock);
+  threadlock_lock(pool->state_lock);
   for (size_t index = 0; index < pool->max_size; index++)
   {
     worker = pool->workers[index];
@@ -208,7 +210,7 @@ struct ThreadPoolWorker *_threadpool_get_available_worker(struct ThreadPool *poo
     }
   }
 
-  threadpoollock_unlock(pool->state_lock);
+  threadlock_unlock(pool->state_lock);
 
   if (!done)
   {

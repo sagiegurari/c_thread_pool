@@ -23,7 +23,18 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-include_directories(include)
+macro(add_external_lib)
+  utils_add_external_github_lib(
+    REPO_USERNAME sagiegurari
+    REPO_NAME c_${ARGV0}
+    TAG_NAME ${ARGV1}
+    LIBRARY_NAME ${ARGV0}
+    LIBRARY_PARENT_DIRECTORY target
+  )
+endmacro(add_external_lib)
+add_external_lib("thread_lock")
+
+include_directories(include "${THREAD_LOCK_INCLUDE}")
 
 # define all sources
 file(GLOB SOURCES "src/*.c")
@@ -42,7 +53,7 @@ utils_uncrustify(
 )
 
 # create static library
-add_library(${CMAKE_PROJECT_NAME} STATIC ${SOURCES})
+add_library(${CMAKE_PROJECT_NAME} STATIC ${SOURCES} ${THREAD_LOCK_SOURCES})
 if(NOT WIN32)
   set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES COMPILE_FLAGS "${X_CMAKE_C_FLAGS} -Wconversion")
 endif()

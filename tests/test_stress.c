@@ -1,24 +1,24 @@
 #include "test.h"
+#include "threadlock.h"
 #include "threadpool.h"
-#include "threadpoollock.h"
 
-static int                   _global_invoked = 0;
-static struct ThreadPoolLock *_global_lock   = NULL;
+static int               _global_invoked = 0;
+static struct ThreadLock *_global_lock   = NULL;
 
 
 static void _run(void *args)
 {
   assert_true_with_description(args != NULL, "args are null");
   assert_string_equal("test", (char *)args);
-  threadpoollock_lock(_global_lock);
+  threadlock_lock(_global_lock);
   _global_invoked++;
-  threadpoollock_unlock(_global_lock);
+  threadlock_unlock(_global_lock);
 }
 
 
 static void test_impl()
 {
-  _global_lock = threadpoollock_new(0);
+  _global_lock = threadlock_new();
   struct ThreadPool *pool = threadpool_new();
 
   assert_true_with_description(pool != NULL, "pool is null");
@@ -36,7 +36,7 @@ static void test_impl()
   assert_num_equal(_global_invoked, loops * parallel);
 
   threadpool_release(pool);
-  threadpoollock_release(_global_lock);
+  threadlock_release(_global_lock);
 }
 
 

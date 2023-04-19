@@ -1,6 +1,5 @@
 #include "test.h"
 #include "threadpool.h"
-#include "threadpoollock.h"
 
 
 static void test_impl()
