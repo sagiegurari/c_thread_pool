@@ -53,7 +53,7 @@ struct ThreadPoolOptions
  * Returns default options struct that can be modified and used to later
  * create a new thread pool.
  */
-struct ThreadPoolOptions threadpool_new_default_options();
+struct ThreadPoolOptions threadpool_new_default_options(void);
 
 /**
  * Creates a new thread pool with default options.
