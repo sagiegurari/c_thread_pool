@@ -21,7 +21,7 @@ struct ThreadPool
 static struct ThreadPoolWorker *_threadpool_start_worker(struct ThreadPool *);
 struct ThreadPoolWorker        *_threadpool_get_available_worker(struct ThreadPool *, void (*fn)(void *), void *);
 
-struct ThreadPoolOptions       threadpool_new_default_options()
+struct ThreadPoolOptions       threadpool_new_default_options(void)
 {
   struct ThreadPoolOptions options =
   {
@@ -33,7 +33,7 @@ struct ThreadPoolOptions       threadpool_new_default_options()
   return(options);
 }
 
-struct ThreadPool *threadpool_new()
+struct ThreadPool *threadpool_new(void)
 {
   struct ThreadPoolOptions options = threadpool_new_default_options();
 

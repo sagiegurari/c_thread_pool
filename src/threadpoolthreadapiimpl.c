@@ -10,7 +10,7 @@ struct ThreadPoolAPIThread
   pthread_t thread;
 };
 
-struct ThreadPoolThreadAPI *threadpoolthreadapiimpl_new()
+struct ThreadPoolThreadAPI *threadpoolthreadapiimpl_new(void)
 {
   struct ThreadPoolThreadAPI *thread_api = malloc(sizeof(struct ThreadPoolThreadAPI));
 
