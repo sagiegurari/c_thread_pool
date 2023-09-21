@@ -19,6 +19,7 @@ This library provides a simple thread pool and enables running functions in the 
 <a name="usage"></a>
 ## Usage
 
+<!-- example source start -->
 ```c
 #include "threadpool.h"
 #include <stdio.h>
@@ -63,6 +64,7 @@ static void do_in_background(void *args)
   printf("In thread, args: %s\n", (char *)args);
 }
 ```
+<!-- example source end -->
 
 ## Contributing
 See [contributing guide](.github/CONTRIBUTING.md)
